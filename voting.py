@@ -193,4 +193,50 @@ else:
     X_reg, y_reg = get_reg_data(reg_ds)
     X_train, X_test, y_train, y_test = train_test_split(X_reg, y_reg, test_size=0.2, random_state=42)
 
-    reg_dict =
+    reg_dict = {
+        'lr': LinearRegression(),
+        'svr': SVR(kernel='rbf', C=100, gamma=0.1),
+        'dt': DecisionTreeRegressor(max_depth=5)
+    }
+
+    if len(active_regs) == 0:
+        st.error("🚨 Please select at least one regressor.")
+    else:
+        current_regs = [(m, reg_dict[m]) for m in active_regs]
+        ensemble_reg = VotingRegressor(estimators=current_regs, weights=reg_weights)
+        ensemble_reg.fit(X_train, y_train)
+        y_ensemble_pred = ensemble_reg.predict(X_test)
+
+        st.subheader("🏁 Performance Scorecard")
+        score_cols = st.columns(len(active_regs) + 1)
+        for i, (name, reg) in enumerate(current_regs):
+            reg.fit(X_train, y_train)
+            y_ind_pred = reg.predict(X_test)
+            with score_cols[i]:
+                st.metric(f"{name.upper()}", f"R²: {r2_score(y_test, y_ind_pred):.2f}")
+                st.caption(f"MAE: {mean_absolute_error(y_test, y_ind_pred):.2f}")
+
+        with score_cols[-1]:
+            st.metric("⭐️ ENSEMBLE", f"R²: {r2_score(y_test, y_ensemble_pred):.2f}")
+            st.caption(f"MAE: {mean_absolute_error(y_test, y_ensemble_pred):.2f}")
+
+        st.markdown("---")
+        st.subheader(f"📊 Regression Logic: {reg_ds}")
+        fig_reg, ax_reg = plt.subplots(figsize=(12, 5))
+        
+        if X_test.shape[1] == 1:
+            sort_idx = np.argsort(X_test[:, 0])
+            x_plot = X_test[sort_idx, 0]
+            ax_reg.scatter(x_plot, y_test[sort_idx], color='black', alpha=0.3, label='Actual')
+            colors = {'lr': '#1f77b4', 'svr': '#2ca02c', 'dt': '#ff7f0e'}
+            for name, reg in current_regs:
+                ax_reg.plot(x_plot, reg.predict(X_test)[sort_idx], '--', alpha=0.7, color=colors.get(name), label=f'{name.upper()} Line')
+            ax_reg.plot(x_plot, y_ensemble_pred[sort_idx], color='red', linewidth=3, label='ENSEMBLE')
+        else:
+            # For Friedman/Diabetes: Sort by target value for visualization
+            sort_idx = np.argsort(y_test)
+            ax_reg.scatter(range(len(y_test)), y_test[sort_idx], color='black', alpha=0.3, label='Actual')
+            ax_reg.plot(range(len(y_test)), y_ensemble_pred[sort_idx], color='red', linewidth=2, label='Ensemble')
+            ax_reg.set_xlabel("Samples (Sorted by Target)")
+        
+        ax_reg.legend(); st.pyplot(fig_reg)
