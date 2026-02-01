@@ -115,7 +115,7 @@ else:
     y_pred = model_to_plot.predict(X_test)
 
     # 1. Voter Scorecard
-    st.subheader("🏁 Performance Metrics")
+    st.subheader("🏁 Estimators Performance ")
     score_cols = st.columns(len(active_models) + 1)
 
     individual_accuracies = {}
